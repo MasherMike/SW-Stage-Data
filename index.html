@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tekken 8 Stage Tracker</title>
+  <style>
+    /* ── Reset & base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #141414;
+      color: #e0e0e0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 14px;
+      min-height: 100vh;
+    }
+
+    /* ── Layout ── */
+    .container { max-width: 860px; margin: 0 auto; padding: 24px 20px 60px; }
+
+    /* ── Season bar ── */
+    .season-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+    .season-pills { display: flex; gap: 8px; flex-wrap: wrap; }
+    .season-btn {
+      background: transparent;
+      border: 1px solid #444;
+      color: #bbb;
+      border-radius: 20px;
+      padding: 6px 18px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .season-btn:hover { border-color: #888; color: #eee; }
+    .season-btn.active { background: #2e2e2e; border-color: #888; color: #fff; }
+    .add-data-btn {
+      background: transparent;
+      border: 1px solid #444;
+      color: #bbb;
+      border-radius: 8px;
+      padding: 6px 14px;
+      cursor: pointer;
+      font-size: 13px;
+      white-space: nowrap;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .add-data-btn:hover { border-color: #888; color: #eee; }
+
+    /* ── Summary cards ── */
+    .summary-cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .card {
+      background: #1e1e1e;
+      border: 1px solid #2a2a2a;
+      border-radius: 10px;
+      padding: 18px 20px;
+    }
+    .card-value {
+      font-size: 28px;
+      font-weight: 700;
+      line-height: 1.1;
+      margin-bottom: 4px;
+    }
+    .card-label { font-size: 12px; color: #777; }
+    .card-value.green { color: #4caf50; }
+    .card-value.red   { color: #e05a5a; }
+    .card-value.white { color: #fff; }
+
+    /* ── Chart panel ── */
+    .chart-panel {
+      background: #1e1e1e;
+      border: 1px solid #2a2a2a;
+      border-radius: 10px;
+      padding: 0 0 8px;
+      margin-bottom: 24px;
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid #2a2a2a;
+      padding: 0 20px;
+    }
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: #777;
+      padding: 14px 14px 12px;
+      cursor: pointer;
+      font-size: 13px;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: color 0.15s;
+    }
+    .tab-btn:hover { color: #ccc; }
+    .tab-btn.active { color: #fff; border-bottom-color: #fff; }
+
+    /* Filters */
+    .filters { display: flex; gap: 8px; padding: 12px 20px 0; }
+    .filter-btn {
+      background: transparent;
+      border: 1px solid #333;
+      color: #888;
+      border-radius: 6px;
+      padding: 4px 12px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .filter-btn:hover { border-color: #666; color: #ccc; }
+    .filter-btn.active { background: #2e2e2e; border-color: #888; color: #fff; }
+
+    /* Column header */
+    .chart-header {
+      display: flex;
+      align-items: center;
+      padding: 10px 20px 6px;
+      font-size: 11px;
+      color: #555;
+      gap: 4px;
+    }
+    .delta-toggle {
+      background: transparent;
+      border: none;
+      color: #666;
+      cursor: pointer;
+      font-size: 11px;
+      padding: 0 2px;
+      text-decoration: underline;
+      transition: color 0.15s;
+    }
+    .delta-toggle:hover { color: #aaa; }
+    .delta-toggle.active { color: #ccc; }
+
+    /* Stage rows */
+    .stage-list { padding: 4px 20px 8px; }
+    .stage-row {
+      display: grid;
+      grid-template-columns: 200px 1fr 52px 52px;
+      align-items: center;
+      gap: 12px;
+      padding: 5px 0;
+    }
+    .stage-name { font-size: 13px; color: #ccc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bar-track { background: #2a2a2a; border-radius: 3px; height: 8px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 3px; transition: width 0.3s ease; }
+    .bar-fill.green { background: #4caf50; }
+    .bar-fill.amber { background: #c8960c; }
+    .bar-fill.red   { background: #e05a5a; }
+    .win-rate { font-size: 13px; color: #ccc; text-align: right; }
+    .delta { font-size: 12px; text-align: right; white-space: nowrap; }
+    .delta.pos  { color: #4caf50; }
+    .delta.neg  { color: #e05a5a; }
+    .delta.none { color: #444; }
+    .no-stages  { padding: 20px; color: #555; text-align: center; font-size: 13px; }
+
+    /* ── Entry form ── */
+    .entry-panel {
+      background: #1e1e1e;
+      border: 1px solid #2a2a2a;
+      border-radius: 10px;
+      padding: 20px;
+    }
+    .entry-panel h3 { font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 14px; }
+    .entry-form { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+    .entry-form select,
+    .entry-form input[type="number"] {
+      background: #141414;
+      border: 1px solid #333;
+      color: #ccc;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .entry-form select:focus,
+    .entry-form input[type="number"]:focus { border-color: #666; }
+    #form-season  { width: 80px; }
+    #form-stage   { flex: 1; min-width: 180px; }
+    #form-winrate { width: 80px; }
+    .save-btn {
+      background: #2e2e2e;
+      border: 1px solid #555;
+      color: #ddd;
+      border-radius: 6px;
+      padding: 8px 20px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .save-btn:hover { background: #3a3a3a; border-color: #888; }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #333;
+      color: #fff;
+      padding: 10px 22px;
+      border-radius: 8px;
+      font-size: 13px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s, transform 0.2s;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <!-- Season bar -->
+    <div class="season-bar">
+      <div class="season-pills" id="season-pills"></div>
+      <button class="add-data-btn" id="add-data-btn">+ Add Stage Data</button>
+    </div>
+
+    <!-- Summary cards -->
+    <div class="summary-cards" id="summary-cards"></div>
+
+    <!-- Chart panel -->
+    <div class="chart-panel">
+      <div class="tabs" id="tabs"></div>
+      <div class="filters" id="filters"></div>
+      <div class="chart-header" id="chart-header"></div>
+      <div class="stage-list" id="stage-list"></div>
+    </div>
+
+    <!-- Entry form -->
+    <div class="entry-panel" id="entry-panel">
+      <h3>Add / update data</h3>
+      <div class="entry-form">
+        <select id="form-season"></select>
+        <select id="form-stage"></select>
+        <input type="number" id="form-winrate" min="0" max="100" placeholder="Win %" />
+        <button class="save-btn" id="save-btn">Save</button>
+      </div>
+    </div>
+
+  </div>
+  <div class="toast" id="toast">Saved!</div>
+
+  <script>
+    // JS goes here in subsequent tasks
+  </script>
+</body>
+</html>
