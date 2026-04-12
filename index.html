@@ -450,6 +450,29 @@
           return `<button class="season-btn${active}" data-season="${escapeHtml(key)}">${escapeHtml(key)}</button>`
         }).join('')
     }
+
+    // ── Render: Summary cards ────────────────────────────────────────────────────
+    function renderSummaryCards() {
+      const current = buildCurrentState(state.activeSeason)
+      const overall = getOverallWinRate(current)
+      const best    = getBestStage(current)
+      const worst   = getWorstStage(current)
+
+      document.getElementById('summary-cards').innerHTML = `
+        <div class="card">
+          <div class="card-value white">${overall}%</div>
+          <div class="card-label">Overall win rate</div>
+        </div>
+        <div class="card">
+          <div class="card-value green">${escapeHtml(best.name)}</div>
+          <div class="card-label">Best stage (${best.winRate}%)</div>
+        </div>
+        <div class="card">
+          <div class="card-value red">${escapeHtml(worst.name)}</div>
+          <div class="card-label">Worst stage (${worst.winRate}%)</div>
+        </div>
+      `
+    }
   </script>
 </body>
 </html>
