@@ -433,7 +433,7 @@
       console.assert(barColor(44) === 'red',   'barColor 44 = red')
       const deltas = computeDeltas('S3', 'season')
       console.assert(deltas['Arena'] === null, 'S3 season delta = null (no S2)')
-      const escaped = escapeHtml('<script>alert(1)</script>')
+      const escaped = escapeHtml('<scr' + 'ipt>alert(1)</scr' + 'ipt>')
       console.assert(!escaped.includes('<script>'), 'escapeHtml strips script tags')
       console.log('[DataTests] All assertions passed')
     }
