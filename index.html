@@ -433,6 +433,23 @@
       console.log('[DataTests] All assertions passed')
     }
     runDataTests()
+
+    // ── State ────────────────────────────────────────────────────────────────────
+    const state = {
+      activeSeason: Object.keys(SEED_DATA).sort().at(-1), // default to last season
+      activeTab: 'all',      // 'all' | 'trending-up' | 'trending-down'
+      activeFilter: 'all',   // 'all' | 'strong' | 'weak'
+      deltaMode: 'season',   // 'season' | 'session'
+    }
+
+    // ── Render: Season bar ───────────────────────────────────────────────────────
+    function renderSeasonBar() {
+      document.getElementById('season-pills').innerHTML =
+        Object.keys(SEED_DATA).sort().map(key => {
+          const active = key === state.activeSeason ? ' active' : ''
+          return `<button class="season-btn${active}" data-season="${escapeHtml(key)}">${escapeHtml(key)}</button>`
+        }).join('')
+    }
   </script>
 </body>
 </html>
