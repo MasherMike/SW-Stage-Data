@@ -418,7 +418,7 @@
       console.assert(s3['Arena'] === 100, 'Arena S3 seed = 100')
       console.assert(s3['Genmaji Temple'] === 33, 'Genmaji Temple S3 seed = 33')
       console.assert(Object.keys(s3).length === 22, 'S3 has 22 stages')
-      // S3 mean: sum of all 22 win rates / 22 = 1253 / 22 = 56.95 → rounds to 57
+      // S3 mean: sum of all 22 win rates / 22 = 1244 / 22 = 56.55 → rounds to 57
       console.assert(getOverallWinRate(s3) === 57, `Overall win rate = 57, got ${getOverallWinRate(s3)}`)
       console.assert(getBestStage(s3).name === 'Arena', 'Best stage = Arena')
       console.assert(getWorstStage(s3).name === 'Genmaji Temple', 'Worst stage = Genmaji Temple')
