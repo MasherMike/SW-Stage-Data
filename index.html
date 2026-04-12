@@ -610,6 +610,64 @@
       showToast()
       render()
     }
+
+    // ── Render orchestrator ──────────────────────────────────────────────────────
+    function render() {
+      renderSeasonBar()
+      renderSummaryCards()
+      renderChart()
+      renderEntryForm()
+    }
+
+    // ── Event delegation ─────────────────────────────────────────────────────────
+    document.addEventListener('click', e => {
+      const seasonBtn = e.target.closest('[data-season]')
+      if (seasonBtn) {
+        state.activeSeason = seasonBtn.dataset.season
+        render()
+        return
+      }
+
+      const tabBtn = e.target.closest('[data-tab]')
+      if (tabBtn) {
+        state.activeTab = tabBtn.dataset.tab
+        renderChart()
+        return
+      }
+
+      const filterBtn = e.target.closest('[data-filter]')
+      if (filterBtn) {
+        state.activeFilter = filterBtn.dataset.filter
+        renderChart()
+        return
+      }
+
+      const deltaBtn = e.target.closest('[data-delta]')
+      if (deltaBtn) {
+        state.deltaMode = deltaBtn.dataset.delta
+        renderChart()
+        return
+      }
+
+      if (e.target.closest('#add-data-btn')) {
+        document.getElementById('entry-panel').scrollIntoView({ behavior: 'smooth' })
+        document.getElementById('form-winrate').focus()
+        return
+      }
+
+      if (e.target.closest('#save-btn')) {
+        handleSave()
+        return
+      }
+    })
+
+    // Re-populate stage dropdown when season changes in the form
+    document.getElementById('form-season').addEventListener('change', e => {
+      populateStageDropdown(e.target.value)
+    })
+
+    // ── Initial render ────────────────────────────────────────────────────────────
+    render()
   </script>
 </body>
 </html>
