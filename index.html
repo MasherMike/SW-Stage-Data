@@ -310,9 +310,14 @@
      */
     function buildCurrentState(season) {
       const base = { ...(SEED_DATA[season] || {}) }
-      const entries = getEntries()
+      const all = getEntries()
+      const entries = all
+        .map((e, i) => ({ ...e, _idx: i }))
         .filter(e => e.season === season)
-        .sort((a, b) => b.date.localeCompare(a.date)) // newest first
+        .sort((a, b) => {
+          const d = b.date.localeCompare(a.date)
+          return d !== 0 ? d : b._idx - a._idx // newer date first; same date → later save wins
+        })
       const seen = new Set()
       for (const entry of entries) {
         if (!seen.has(entry.stage)) {
