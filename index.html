@@ -560,6 +560,56 @@
           </div>`
       }).join('')
     }
+
+    // ── Render: Entry form ───────────────────────────────────────────────────────
+    function renderEntryForm() {
+      const seasonSelect = document.getElementById('form-season')
+
+      // Only rebuild season options if the set of seasons changed (avoid resetting user selection)
+      const seasonKeys = Object.keys(SEED_DATA).sort()
+      if (seasonSelect.options.length !== seasonKeys.length) {
+        seasonSelect.innerHTML = seasonKeys.map(key =>
+          `<option value="${escapeHtml(key)}">${escapeHtml(key)}</option>`
+        ).join('')
+      }
+      seasonSelect.value = state.activeSeason
+      populateStageDropdown(seasonSelect.value)
+    }
+
+    function populateStageDropdown(season) {
+      const stages = Object.keys(SEED_DATA[season] || {}).sort()
+      document.getElementById('form-stage').innerHTML = stages.map(s =>
+        `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`
+      ).join('')
+    }
+
+    // ── Toast ────────────────────────────────────────────────────────────────────
+    let toastTimer = null
+    function showToast(msg = 'Saved!') {
+      const toast = document.getElementById('toast')
+      toast.textContent = msg
+      toast.classList.add('show')
+      clearTimeout(toastTimer)
+      toastTimer = setTimeout(() => toast.classList.remove('show'), 2000)
+    }
+
+    // ── Save handler ─────────────────────────────────────────────────────────────
+    function handleSave() {
+      const season  = document.getElementById('form-season').value
+      const stage   = document.getElementById('form-stage').value
+      const raw     = document.getElementById('form-winrate').value
+      const winRate = parseInt(raw, 10)
+
+      if (!season || !stage || raw === '' || isNaN(winRate) || winRate < 0 || winRate > 100) {
+        showToast('Enter a win % between 0 and 100')
+        return
+      }
+
+      saveEntry(season, stage, winRate)
+      document.getElementById('form-winrate').value = ''
+      showToast()
+      render()
+    }
   </script>
 </body>
 </html>
