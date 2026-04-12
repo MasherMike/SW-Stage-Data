@@ -473,6 +473,93 @@
         </div>
       `
     }
+
+    // ── Render: Chart section ────────────────────────────────────────────────────
+    function renderChart() {
+      renderTabs()
+      renderFilters()
+      renderChartHeader()
+      renderStageList()
+    }
+
+    function renderTabs() {
+      const tabs = [
+        { id: 'all',           label: 'All stages' },
+        { id: 'trending-up',   label: 'Trending up' },
+        { id: 'trending-down', label: 'Trending down' },
+      ]
+      document.getElementById('tabs').innerHTML = tabs.map(t => {
+        const active = t.id === state.activeTab ? ' active' : ''
+        return `<button class="tab-btn${active}" data-tab="${t.id}">${t.label}</button>`
+      }).join('')
+    }
+
+    function renderFilters() {
+      const filters = [
+        { id: 'all',    label: 'All' },
+        { id: 'strong', label: 'Strong (70%+)' },
+        { id: 'weak',   label: 'Weak (sub 45%)' },
+      ]
+      document.getElementById('filters').innerHTML = filters.map(f => {
+        const active = f.id === state.activeFilter ? ' active' : ''
+        return `<button class="filter-btn${active}" data-filter="${f.id}">${f.label}</button>`
+      }).join('')
+    }
+
+    function renderChartHeader() {
+      const seasonToggle  = `<button class="delta-toggle${state.deltaMode === 'season'  ? ' active' : ''}" data-delta="season">last season</button>`
+      const sessionToggle = `<button class="delta-toggle${state.deltaMode === 'session' ? ' active' : ''}" data-delta="session">last session</button>`
+      document.getElementById('chart-header').innerHTML =
+        `Stage &mdash; ${escapeHtml(state.activeSeason)} win rate &mdash; vs ${seasonToggle} / ${sessionToggle}`
+    }
+
+    function renderStageList() {
+      const current = buildCurrentState(state.activeSeason)
+      const deltas  = computeDeltas(state.activeSeason, state.deltaMode)
+
+      // Sort by win rate descending
+      let rows = Object.entries(current).sort((a, b) => b[1] - a[1])
+
+      // Tab filter (trending requires a non-null delta)
+      if (state.activeTab === 'trending-up') {
+        rows = rows.filter(([name]) => deltas[name] !== null && deltas[name] > 0)
+      } else if (state.activeTab === 'trending-down') {
+        rows = rows.filter(([name]) => deltas[name] !== null && deltas[name] < 0)
+      }
+
+      // Strength filter
+      if (state.activeFilter === 'strong') {
+        rows = rows.filter(([, rate]) => rate >= 70)
+      } else if (state.activeFilter === 'weak') {
+        rows = rows.filter(([, rate]) => rate < 45)
+      }
+
+      if (!rows.length) {
+        document.getElementById('stage-list').innerHTML =
+          '<div class="no-stages">No stages match the current filters.</div>'
+        return
+      }
+
+      document.getElementById('stage-list').innerHTML = rows.map(([name, rate]) => {
+        const color = barColor(rate)
+        const delta = deltas[name]
+        let deltaHtml
+        if (delta === null || delta === 0) {
+          deltaHtml = `<span class="delta none">&mdash;</span>`
+        } else if (delta > 0) {
+          deltaHtml = `<span class="delta pos">+${delta}%</span>`
+        } else {
+          deltaHtml = `<span class="delta neg">${delta}%</span>`
+        }
+        return `
+          <div class="stage-row">
+            <span class="stage-name">${escapeHtml(name)}</span>
+            <div class="bar-track"><div class="bar-fill ${color}" style="width:${rate}%"></div></div>
+            <span class="win-rate">${rate}%</span>
+            ${deltaHtml}
+          </div>`
+      }).join('')
+    }
   </script>
 </body>
 </html>
