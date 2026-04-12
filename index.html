@@ -257,7 +257,182 @@
   <div class="toast" id="toast">Saved!</div>
 
   <script>
-    // JS goes here in subsequent tasks
+    // ── XSS guard ───────────────────────────────────────────────────────────────
+    // Use escapeHtml() on any string from localStorage before inserting into innerHTML.
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+    }
+
+    // ── Seed data ────────────────────────────────────────────────────────────────
+    const SEED_DATA = {
+      S3: {
+        "Arena": 100, "Baobab Horizon": 100, "Secluded Training Ground": 71,
+        "Seaside Resort": 71, "Phoenix Gate": 71, "Descent into Subconscious": 66,
+        "Coliseum of Fate": 60, "Yakushima": 58, "Midnight Siege": 56,
+        "Arena Underground": 56, "Pac-Pixels": 55, "Fallen Destiny": 50,
+        "Ortiz Farm": 50, "Elegant Palace": 50, "Genmaji Temple Daytime": 50,
+        "Into the Stratosphere": 44, "Celebration on the Seine": 44,
+        "Sanctum": 42, "Urban Square Evening": 40, "Urban Square": 40,
+        "Rebel Hangar": 37, "Genmaji Temple": 33
+      }
+      // Add future seasons here: S4: { "Stage Name": winRate, ... }
+    }
+
+    // ── localStorage helpers ─────────────────────────────────────────────────────
+    const LS_KEY = 'tekken_entries'
+
+    function getEntries() {
+      try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]') }
+      catch { return [] }
+    }
+
+    function saveEntry(season, stage, winRate) {
+      const entries = getEntries()
+      entries.push({ season, stage, winRate, date: getToday() })
+      localStorage.setItem(LS_KEY, JSON.stringify(entries))
+    }
+
+    function getToday() {
+      return new Date().toISOString().slice(0, 10) // "YYYY-MM-DD"
+    }
+
+    // ── Data computations ────────────────────────────────────────────────────────
+
+    /**
+     * Merges seed data with localStorage entries for a season.
+     * Most recent localStorage entry per stage overrides the seed baseline.
+     * Returns { stageName: winRate, ... }
+     */
+    function buildCurrentState(season) {
+      const base = { ...(SEED_DATA[season] || {}) }
+      const entries = getEntries()
+        .filter(e => e.season === season)
+        .sort((a, b) => b.date.localeCompare(a.date)) // newest first
+      const seen = new Set()
+      for (const entry of entries) {
+        if (!seen.has(entry.stage)) {
+          base[entry.stage] = entry.winRate
+          seen.add(entry.stage)
+        }
+      }
+      return base
+    }
+
+    /** Returns the season key immediately before the given one (by sort order), or null. */
+    function getPreviousSeasonKey(season) {
+      // Only seasons present in SEED_DATA are considered. Returns null if no prior season exists.
+      const keys = Object.keys(SEED_DATA).sort()
+      const idx = keys.indexOf(season)
+      return idx > 0 ? keys[idx - 1] : null
+    }
+
+    /**
+     * Returns the most recent date (YYYY-MM-DD) with localStorage entries
+     * for the given season that is strictly before today. Returns null if none.
+     */
+    function getLastSessionDate(season) {
+      const today = getToday()
+      const dates = getEntries()
+        .filter(e => e.season === season && e.date < today)
+        .map(e => e.date)
+      if (!dates.length) return null
+      return dates.sort().at(-1)
+    }
+
+    /**
+     * Computes per-stage deltas for the given season and mode.
+     * mode: "season" — current vs previous season's current state
+     * mode: "session" — current vs last session (prior calendar day)
+     * Returns { stageName: number | null }  (null → render as "—")
+     */
+    function computeDeltas(season, mode) {
+      const current = buildCurrentState(season)
+      let reference = {}
+
+      if (mode === 'season') {
+        const prevKey = getPreviousSeasonKey(season)
+        reference = prevKey ? buildCurrentState(prevKey) : {}
+      } else {
+        const lastDate = getLastSessionDate(season)
+        if (lastDate) {
+          const base = { ...(SEED_DATA[season] || {}) }
+          const entries = getEntries()
+            .filter(e => e.season === season && e.date <= lastDate)
+            .sort((a, b) => b.date.localeCompare(a.date))
+          const seen = new Set()
+          for (const entry of entries) {
+            if (!seen.has(entry.stage)) {
+              base[entry.stage] = entry.winRate
+              seen.add(entry.stage)
+            }
+          }
+          reference = base
+        }
+      }
+
+      const deltas = {}
+      for (const stage of Object.keys(current)) {
+        deltas[stage] = stage in reference ? current[stage] - reference[stage] : null
+      }
+      return deltas
+    }
+
+    /** Mean win rate (rounded) across all stages in the given state object. */
+    function getOverallWinRate(stateData) {
+      const values = Object.values(stateData)
+      if (!values.length) return 0
+      return Math.round(values.reduce((a, b) => a + b, 0) / values.length)
+    }
+
+    /** Returns { name, winRate } for the highest win rate stage. */
+    function getBestStage(stateData) {
+      return Object.entries(stateData).reduce(
+        (best, [name, rate]) => rate > best.winRate ? { name, winRate: rate } : best,
+        { name: '—', winRate: -Infinity }
+      )
+    }
+
+    /** Returns { name, winRate } for the lowest win rate stage. */
+    function getWorstStage(stateData) {
+      return Object.entries(stateData).reduce(
+        (worst, [name, rate]) => rate < worst.winRate ? { name, winRate: rate } : worst,
+        { name: '—', winRate: Infinity }
+      )
+    }
+
+    /** Returns the CSS color class for a win rate value. */
+    function barColor(rate) {
+      if (rate >= 70) return 'green'
+      if (rate >= 45) return 'amber'
+      return 'red'
+    }
+
+    // ── Data layer tests (verify in console on load) ─────────────────────────────
+    function runDataTests() {
+      const s3 = buildCurrentState('S3')
+      console.assert(s3['Arena'] === 100, 'Arena S3 seed = 100')
+      console.assert(s3['Genmaji Temple'] === 33, 'Genmaji Temple S3 seed = 33')
+      console.assert(Object.keys(s3).length === 22, 'S3 has 22 stages')
+      // S3 mean: sum of all 22 win rates / 22 = 1253 / 22 = 56.95 → rounds to 57
+      console.assert(getOverallWinRate(s3) === 57, `Overall win rate = 57, got ${getOverallWinRate(s3)}`)
+      console.assert(getBestStage(s3).name === 'Arena', 'Best stage = Arena')
+      console.assert(getWorstStage(s3).name === 'Genmaji Temple', 'Worst stage = Genmaji Temple')
+      console.assert(getPreviousSeasonKey('S3') === null, 'S3 has no previous season (only season in seed)')
+      console.assert(barColor(70) === 'green', 'barColor 70 = green')
+      console.assert(barColor(45) === 'amber', 'barColor 45 = amber')
+      console.assert(barColor(44) === 'red',   'barColor 44 = red')
+      const deltas = computeDeltas('S3', 'season')
+      console.assert(deltas['Arena'] === null, 'S3 season delta = null (no S2)')
+      const escaped = escapeHtml('<script>alert(1)</script>')
+      console.assert(!escaped.includes('<script>'), 'escapeHtml strips script tags')
+      console.log('[DataTests] All assertions passed')
+    }
+    runDataTests()
   </script>
 </body>
 </html>
