@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Option B — Snapshot pills row</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #141414; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; min-height: 100vh; }
+  .container { max-width: 860px; margin: 0 auto; padding: 24px 20px 60px; }
+  .label { font-size: 11px; color: #555; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; }
+
+  .season-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .season-pills { display: flex; gap: 8px; flex-wrap: wrap; }
+  .season-btn { background: transparent; border: 1px solid #444; color: #bbb; border-radius: 20px; padding: 6px 18px; cursor: pointer; font-size: 13px; }
+  .season-btn.active { background: #2e2e2e; border-color: #888; color: #fff; }
+  .add-data-btn { background: transparent; border: 1px solid #444; color: #bbb; border-radius: 8px; padding: 6px 14px; cursor: pointer; font-size: 13px; }
+
+  .snapshot-row {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 24px; padding-left: 2px;
+  }
+  .snapshot-row .row-label {
+    font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.05em;
+    margin-right: 4px;
+  }
+  .snapshot-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+  .snapshot-btn {
+    background: transparent; border: 1px solid #333; color: #888;
+    border-radius: 14px; padding: 4px 12px; cursor: pointer; font-size: 12px;
+  }
+  .snapshot-btn:hover { border-color: #666; color: #ccc; }
+  .snapshot-btn.active { background: #2a2a2a; border-color: #777; color: #eee; }
+  .snapshot-btn .tag { color: #888; margin-left: 4px; font-size: 11px; }
+  .snapshot-btn.active .tag { color: #aaa; }
+
+  .chart-panel { background: #1e1e1e; border: 1px solid #2a2a2a; border-radius: 10px; padding: 18px 20px; }
+  .chart-header { font-size: 11px; color: #555; margin-bottom: 12px; }
+  .stage-row { display: grid; grid-template-columns: 200px 1fr 52px 52px; align-items: center; gap: 12px; padding: 5px 0; }
+  .stage-name { font-size: 13px; color: #ccc; }
+  .bar-track { background: #2a2a2a; border-radius: 3px; height: 8px; }
+  .bar-fill { height: 100%; border-radius: 3px; }
+  .bar-fill.green { background: #4caf50; }
+  .bar-fill.amber { background: #c8960c; }
+  .bar-fill.red { background: #e05a5a; }
+  .win-rate { font-size: 13px; color: #ccc; text-align: right; }
+  .delta { font-size: 12px; text-align: right; }
+  .delta.pos { color: #4caf50; }
+  .delta.neg { color: #e05a5a; }
+
+  .note { margin-top: 32px; padding: 16px 20px; background: #1a1a1a; border-left: 3px solid #4a7fb8; border-radius: 4px; font-size: 12px; color: #aaa; line-height: 1.6; }
+  .note strong { color: #ddd; }
+</style>
+</head>
+<body>
+  <div class="container">
+
+    <div class="label">Option B — Second row of snapshot pills</div>
+
+    <div class="season-bar">
+      <div class="season-pills">
+        <button class="season-btn">S1</button>
+        <button class="season-btn">S2</button>
+        <button class="season-btn active">S3</button>
+      </div>
+      <button class="add-data-btn">+ Add Stage Data</button>
+    </div>
+
+    <div class="snapshot-row">
+      <span class="row-label">Snapshots</span>
+      <div class="snapshot-pills">
+        <button class="snapshot-btn">2026-04-11</button>
+        <button class="snapshot-btn active">2026-05-01<span class="tag">current</span></button>
+      </div>
+    </div>
+
+    <div class="chart-panel">
+      <div class="chart-header">Stage — S3 win rate — vs previous snapshot</div>
+      <div class="stage-row">
+        <span class="stage-name">Secluded Training Ground</span>
+        <div class="bar-track"><div class="bar-fill green" style="width:81%"></div></div>
+        <span class="win-rate">81%</span>
+        <span class="delta pos">+10%</span>
+      </div>
+      <div class="stage-row">
+        <span class="stage-name">Celebration on the Seine</span>
+        <div class="bar-track"><div class="bar-fill amber" style="width:66%"></div></div>
+        <span class="win-rate">66%</span>
+        <span class="delta pos">+22%</span>
+      </div>
+      <div class="stage-row">
+        <span class="stage-name">Arena</span>
+        <div class="bar-track"><div class="bar-fill amber" style="width:58%"></div></div>
+        <span class="win-rate">58%</span>
+        <span class="delta neg">-42%</span>
+      </div>
+      <div class="stage-row">
+        <span class="stage-name">Rebel Hangar</span>
+        <div class="bar-track"><div class="bar-fill red" style="width:30%"></div></div>
+        <span class="win-rate">30%</span>
+        <span class="delta neg">-7%</span>
+      </div>
+    </div>
+
+    <div class="note">
+      <strong>Option B:</strong> A second row of pills appears under the season selector when the active season has more than one snapshot. Same pill style as seasons, just smaller. All snapshot dates are visible at a glance — no click needed to see how many exist. Hidden entirely for S1 and S2 (single-snapshot seasons).
+    </div>
+
+  </div>
+</body>
+</html>
