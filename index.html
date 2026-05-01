@@ -269,41 +269,62 @@
     }
 
     // ── Seed data ────────────────────────────────────────────────────────────────
+    // Each season holds one or more dated snapshots. Newest is current baseline.
+    // Add new snapshots by inserting another date key under the same season.
     const SEED_DATA = {
       S1: {
-        "Arena": 48, "Arena Underground": 41, "Urban Square Evening": 45, "Urban Square": 41,
-        "Yakushima": 49, "Coliseum of Fate": 45, "Rebel Hangar": 46, "Fallen Destiny": 41,
-        "Descent into Subconscious": 43, "Sanctum": 48, "Into the Stratosphere": 47,
-        "Ortiz Farm": 40, "Celebration on the Seine": 44, "Secluded Training Ground": 49,
-        "Elegant Palace": 47, "Midnight Siege": 44, "Seaside Resort": 57,
-        "Genmaji Temple": 50, "Genmaji Temple Daytime": 60, "Phoenix Gate": 50
+        "2026-04-11": {
+          "Arena": 48, "Arena Underground": 41, "Urban Square Evening": 45, "Urban Square": 41,
+          "Yakushima": 49, "Coliseum of Fate": 45, "Rebel Hangar": 46, "Fallen Destiny": 41,
+          "Descent into Subconscious": 43, "Sanctum": 48, "Into the Stratosphere": 47,
+          "Ortiz Farm": 40, "Celebration on the Seine": 44, "Secluded Training Ground": 49,
+          "Elegant Palace": 47, "Midnight Siege": 44, "Seaside Resort": 57,
+          "Genmaji Temple": 50, "Genmaji Temple Daytime": 60, "Phoenix Gate": 50
+        }
       },
       S2: {
-        "Arena": 50, "Arena Underground": 40, "Urban Square Evening": 68, "Urban Square": 47,
-        "Yakushima": 50, "Coliseum of Fate": 58, "Rebel Hangar": 49, "Fallen Destiny": 52,
-        "Descent into Subconscious": 55, "Sanctum": 48, "Into the Stratosphere": 52,
-        "Ortiz Farm": 53, "Celebration on the Seine": 51, "Secluded Training Ground": 51,
-        "Elegant Palace": 47, "Midnight Siege": 52, "Seaside Resort": 49,
-        "Genmaji Temple": 43, "Genmaji Temple Daytime": 53, "Phoenix Gate": 52,
-        "Pac-Pixels": 43, "Baobab Horizon": 46
+        "2026-04-11": {
+          "Arena": 50, "Arena Underground": 40, "Urban Square Evening": 68, "Urban Square": 47,
+          "Yakushima": 50, "Coliseum of Fate": 58, "Rebel Hangar": 49, "Fallen Destiny": 52,
+          "Descent into Subconscious": 55, "Sanctum": 48, "Into the Stratosphere": 52,
+          "Ortiz Farm": 53, "Celebration on the Seine": 51, "Secluded Training Ground": 51,
+          "Elegant Palace": 47, "Midnight Siege": 52, "Seaside Resort": 49,
+          "Genmaji Temple": 43, "Genmaji Temple Daytime": 53, "Phoenix Gate": 52,
+          "Pac-Pixels": 43, "Baobab Horizon": 46
+        }
       },
       S3: {
-        "Arena": 100, "Baobab Horizon": 100, "Secluded Training Ground": 71,
-        "Seaside Resort": 71, "Phoenix Gate": 71, "Descent into Subconscious": 66,
-        "Coliseum of Fate": 60, "Yakushima": 58, "Midnight Siege": 56,
-        "Arena Underground": 56, "Pac-Pixels": 55, "Fallen Destiny": 50,
-        "Ortiz Farm": 50, "Elegant Palace": 50, "Genmaji Temple Daytime": 50,
-        "Into the Stratosphere": 44, "Celebration on the Seine": 44,
-        "Sanctum": 42, "Urban Square Evening": 40, "Urban Square": 40,
-        "Rebel Hangar": 37, "Genmaji Temple": 33
+        "2026-04-11": {
+          "Arena": 100, "Baobab Horizon": 100, "Secluded Training Ground": 71,
+          "Seaside Resort": 71, "Phoenix Gate": 71, "Descent into Subconscious": 66,
+          "Coliseum of Fate": 60, "Yakushima": 58, "Midnight Siege": 56,
+          "Arena Underground": 56, "Pac-Pixels": 55, "Fallen Destiny": 50,
+          "Ortiz Farm": 50, "Elegant Palace": 50, "Genmaji Temple Daytime": 50,
+          "Into the Stratosphere": 44, "Celebration on the Seine": 44,
+          "Sanctum": 42, "Urban Square Evening": 40, "Urban Square": 40,
+          "Rebel Hangar": 37, "Genmaji Temple": 33
+        },
+        "2026-05-01": {
+          "Arena": 58, "Arena Underground": 62, "Baobab Horizon": 66,
+          "Celebration on the Seine": 66, "Coliseum of Fate": 63,
+          "Descent into Subconscious": 35, "Elegant Palace": 66,
+          "Fallen Destiny": 43, "Genmaji Temple": 33, "Genmaji Temple Daytime": 61,
+          "Into the Stratosphere": 52, "Midnight Siege": 53, "Ortiz Farm": 57,
+          "Pac-Pixels": 50, "Phoenix Gate": 62, "Rebel Hangar": 30,
+          "Sanctum": 61, "Seaside Resort": 62, "Secluded Training Ground": 81,
+          "Urban Square": 47, "Urban Square Evening": 58, "Yakushima": 58
+        }
       }
-      // Add future seasons here: S4: { "Stage Name": winRate, ... }
     }
 
     // ── localStorage helpers ─────────────────────────────────────────────────────
     const LS_KEY = 'tekken_entries'
+    // Test stub — when non-null, getEntries() returns this array directly. Used by runDataTests
+    // to inject deterministic localStorage state. Always restored to null in a finally block.
+    let _entriesStub = null
 
     function getEntries() {
+      if (_entriesStub !== null) return _entriesStub
       try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]') }
       catch { return [] }
     }
@@ -320,17 +341,43 @@
 
     // ── Data computations ────────────────────────────────────────────────────────
 
+    /** Returns sorted ascending array of ISO date strings for a season, or [] if missing. */
+    function getSnapshotDates(season) {
+      return Object.keys(SEED_DATA[season] || {}).sort()
+    }
+
+    /** Returns the newest snapshot date for a season, or null if none. */
+    function getNewestSnapshotDate(season) {
+      const dates = getSnapshotDates(season)
+      return dates.length ? dates[dates.length - 1] : null
+    }
+
+    /** Returns the raw stage-map for a specific snapshot, or {} if not present. */
+    function getSnapshot(season, date) {
+      return (SEED_DATA[season] && SEED_DATA[season][date]) || {}
+    }
+
     /**
-     * Merges seed data with localStorage entries for a season.
-     * Most recent localStorage entry per stage overrides the seed baseline.
+     * Builds the current state for a season at the given snapshot.
+     *
+     * Stale-entry rule: localStorage entries with `entry.date < newestSnapshotDate`
+     * are dropped (strict less-than). Same-day entries DO layer on top.
+     *
+     * Historical view (snapshotDate non-null) ignores localStorage entirely — read-only.
+     *
      * Returns { stageName: winRate, ... }
      */
-    function buildCurrentState(season) {
-      const base = { ...(SEED_DATA[season] || {}) }
+    function buildCurrentState(season, snapshotDate = null) {
+      if (snapshotDate !== null) {
+        return { ...getSnapshot(season, snapshotDate) }
+      }
+      const newestDate = getNewestSnapshotDate(season)
+      if (newestDate === null) return {}
+      const base = { ...getSnapshot(season, newestDate) }
       const all = getEntries()
       const entries = all
         .map((e, i) => ({ ...e, _idx: i }))
-        .filter(e => e.season === season)
+        .filter(e => e.season === season && e.date >= newestDate)
         .sort((a, b) => {
           const d = b.date.localeCompare(a.date)
           return d !== 0 ? d : b._idx - a._idx // newer date first; same date → later save wins
@@ -354,46 +401,26 @@
     }
 
     /**
-     * Returns the most recent date (YYYY-MM-DD) with localStorage entries
-     * for the given season that is strictly before today. Returns null if none.
-     */
-    function getLastSessionDate(season) {
-      const today = getToday()
-      const dates = getEntries()
-        .filter(e => e.season === season && e.date < today)
-        .map(e => e.date)
-      if (!dates.length) return null
-      return dates.sort().at(-1)
-    }
-
-    /**
      * Computes per-stage deltas for the given season and mode.
-     * mode: "season" — current vs previous season's current state
-     * mode: "session" — current vs last session (prior calendar day)
+     * mode: "last-season"       — current vs previous season's newest snapshot (always newest, even when viewing historical).
+     * mode: "previous-snapshot" — viewed snapshot vs the snapshot immediately preceding it within the same season.
      * Returns { stageName: number | null }  (null → render as "—")
      */
-    function computeDeltas(season, mode) {
-      const current = buildCurrentState(season)
+    function computeDeltas(season, mode, snapshotDate = null) {
+      const current = buildCurrentState(season, snapshotDate)
       let reference = {}
 
-      if (mode === 'season') {
+      if (mode === 'last-season') {
         const prevKey = getPreviousSeasonKey(season)
-        reference = prevKey ? buildCurrentState(prevKey) : {}
-      } else {
-        const lastDate = getLastSessionDate(season)
-        if (lastDate) {
-          const base = { ...(SEED_DATA[season] || {}) }
-          const entries = getEntries()
-            .filter(e => e.season === season && e.date <= lastDate)
-            .sort((a, b) => b.date.localeCompare(a.date))
-          const seen = new Set()
-          for (const entry of entries) {
-            if (!seen.has(entry.stage)) {
-              base[entry.stage] = entry.winRate
-              seen.add(entry.stage)
-            }
-          }
-          reference = base
+        if (prevKey) {
+          reference = getSnapshot(prevKey, getNewestSnapshotDate(prevKey))
+        }
+      } else if (mode === 'previous-snapshot') {
+        const dates = getSnapshotDates(season)
+        const viewedDate = snapshotDate !== null ? snapshotDate : getNewestSnapshotDate(season)
+        const idx = dates.indexOf(viewedDate)
+        if (idx > 0) {
+          reference = getSnapshot(season, dates[idx - 1])
         }
       }
 
@@ -435,23 +462,93 @@
     }
 
     // ── Data layer tests (verify in console on load) ─────────────────────────────
+    // getEntries stubbing: tests set _entriesStub (top-level let) to inject deterministic
+    // localStorage state. Each stubbed sub-test is wrapped in try/finally to guarantee the
+    // stub is cleared even if an assertion throws — prevents leakage into the live render.
     function runDataTests() {
-      const s3 = buildCurrentState('S3')
-      console.assert(s3['Arena'] === 100, 'Arena S3 seed = 100')
-      console.assert(s3['Genmaji Temple'] === 33, 'Genmaji Temple S3 seed = 33')
-      console.assert(Object.keys(s3).length === 22, 'S3 has 22 stages')
-      // S3 mean: sum of all 22 win rates / 22 = 1244 / 22 = 56.55 → rounds to 57
-      console.assert(getOverallWinRate(s3) === 57, `Overall win rate = 57, got ${getOverallWinRate(s3)}`)
-      console.assert(getBestStage(s3).name === 'Arena', 'Best stage = Arena')
-      console.assert(getWorstStage(s3).name === 'Genmaji Temple', 'Worst stage = Genmaji Temple')
-      console.assert(getPreviousSeasonKey('S3') === null, 'S3 has no previous season (only season in seed)')
+      // 1. Snapshot navigation
+      console.assert(getSnapshotDates('S3').length === 2, 'S3 has 2 snapshots')
+      console.assert(getSnapshotDates('S3')[0] === '2026-04-11', 'S3 snapshot[0] = 2026-04-11')
+      console.assert(getSnapshotDates('S3')[1] === '2026-05-01', 'S3 snapshot[1] = 2026-05-01')
+      console.assert(getSnapshotDates('S1').length === 1, 'S1 has 1 snapshot')
+      console.assert(getNewestSnapshotDate('S3') === '2026-05-01', 'S3 newest = 2026-05-01')
+      console.assert(getNewestSnapshotDate('S1') === '2026-04-11', 'S1 newest = 2026-04-11')
+
+      // 2. buildCurrentState newest (no localStorage)
+      try {
+        _entriesStub = []
+        const s3 = buildCurrentState('S3')
+        console.assert(s3.Arena === 58, 'S3 newest Arena = 58')
+        console.assert(s3['Genmaji Temple'] === 33, 'S3 newest Genmaji Temple = 33')
+        console.assert(s3['Secluded Training Ground'] === 81, 'S3 newest Secluded Training Ground = 81')
+        console.assert(Object.keys(s3).length === 22, 'S3 newest has 22 stages')
+      } finally { _entriesStub = null }
+
+      // 3. buildCurrentState historical
+      console.assert(buildCurrentState('S3', '2026-04-11').Arena === 100, 'S3 historical Arena = 100')
+      console.assert(buildCurrentState('S3', '2026-04-11')['Secluded Training Ground'] === 71, 'S3 historical Secluded = 71')
+
+      // 4. Summary helpers (newest with empty localStorage)
+      try {
+        _entriesStub = []
+        console.assert(getBestStage(buildCurrentState('S3')).name === 'Secluded Training Ground', 'Best = Secluded Training Ground')
+        console.assert(getWorstStage(buildCurrentState('S3')).name === 'Rebel Hangar', 'Worst = Rebel Hangar')
+        console.assert(getBestStage(buildCurrentState('S3', '2026-04-11')).name === 'Arena', 'Historical best = Arena')
+      } finally { _entriesStub = null }
+
+      // 5. Previous-season helpers
+      console.assert(getPreviousSeasonKey('S3') === 'S2', 'prev(S3) = S2')
+      console.assert(getPreviousSeasonKey('S2') === 'S1', 'prev(S2) = S1')
+      console.assert(getPreviousSeasonKey('S1') === null, 'prev(S1) = null')
+
+      // 6. Delta: previous-snapshot
+      try {
+        _entriesStub = []
+        console.assert(computeDeltas('S3', 'previous-snapshot').Arena === -42, 'S3 prev-snap Arena = -42')
+        console.assert(computeDeltas('S3', 'previous-snapshot')['Secluded Training Ground'] === 10, 'S3 prev-snap Secluded = +10')
+        console.assert(computeDeltas('S3', 'previous-snapshot', '2026-04-11').Arena === null, 'S3 historical prev-snap Arena = null')
+        console.assert(computeDeltas('S1', 'previous-snapshot').Arena === null, 'S1 prev-snap Arena = null (single snapshot)')
+      } finally { _entriesStub = null }
+
+      // 7. Delta: last-season
+      try {
+        _entriesStub = []
+        console.assert(computeDeltas('S3', 'last-season').Arena === 8, 'S3 last-season Arena = 8 (58-50)')
+        console.assert(computeDeltas('S3', 'last-season', '2026-04-11').Arena === 50, 'S3 historical last-season Arena = 50 (100-50)')
+        console.assert(computeDeltas('S1', 'last-season').Arena === null, 'S1 last-season Arena = null')
+      } finally { _entriesStub = null }
+
+      // 8. barColor & escapeHtml unchanged
       console.assert(barColor(70) === 'green', 'barColor 70 = green')
       console.assert(barColor(45) === 'amber', 'barColor 45 = amber')
       console.assert(barColor(44) === 'red',   'barColor 44 = red')
-      const deltas = computeDeltas('S3', 'season')
-      console.assert(deltas['Arena'] === null, 'S3 season delta = null (no S2)')
       const escaped = escapeHtml('<scr' + 'ipt>alert(1)</scr' + 'ipt>')
       console.assert(!escaped.includes('<script>'), 'escapeHtml strips script tags')
+
+      // 9. Stale-entry rule (strict <)
+      try {
+        _entriesStub = [{ season: 'S3', stage: 'Arena', winRate: 99, date: '2026-04-15' }]
+        console.assert(buildCurrentState('S3').Arena === 58, 'Stale entry (2026-04-15) dropped, Arena = 58')
+      } finally { _entriesStub = null }
+
+      try {
+        _entriesStub = [{ season: 'S3', stage: 'Arena', winRate: 99, date: '2026-05-01' }]
+        console.assert(buildCurrentState('S3').Arena === 99, 'Same-day entry layers, Arena = 99')
+      } finally { _entriesStub = null }
+
+      try {
+        _entriesStub = [
+          { season: 'S3', stage: 'Arena', winRate: 99, date: '2026-05-01' },
+          { season: 'S3', stage: 'Arena', winRate: 77, date: '2026-05-01' }
+        ]
+        console.assert(buildCurrentState('S3').Arena === 77, 'Latest same-day save wins, Arena = 77')
+      } finally { _entriesStub = null }
+
+      try {
+        _entriesStub = [{ season: 'S3', stage: 'Arena', winRate: 99, date: '2026-05-01' }]
+        console.assert(buildCurrentState('S3', '2026-04-11').Arena === 100, 'Historical view ignores localStorage, Arena = 100')
+      } finally { _entriesStub = null }
+
       console.log('[DataTests] All assertions passed')
     }
     runDataTests()
@@ -599,7 +696,7 @@
     }
 
     function populateStageDropdown(season) {
-      const stages = Object.keys(SEED_DATA[season] || {}).sort()
+      const stages = Object.keys(getSnapshot(season, getNewestSnapshotDate(season))).sort()
       document.getElementById('form-stage').innerHTML = stages.map(s =>
         `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`
       ).join('')
