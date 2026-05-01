@@ -35,7 +35,7 @@ Dates are ISO `YYYY-MM-DD` strings. Sorting them lexically equals sorting them c
 
 The existing `tekken_entries` localStorage shape (`{season, stage, winRate, date}`) is unchanged. Manual entries continue to layer on top of the **newest** snapshot — the live "current state" view.
 
-**Stale-entry rule:** when computing the current view, localStorage entries with `entry.date < newestSnapshotDate` are ignored. Rationale: a fresh seed snapshot is the new authoritative baseline; older manual edits shouldn't shadow it. Practical effect on this rollout: any dev-test entries saved before 2026-05-01 stop appearing once 2026-05-01 becomes S3's newest snapshot. The localStorage rows aren't deleted, just filtered out of the merge.
+**Stale-entry rule:** when computing the current view, localStorage entries with `entry.date < newestSnapshotDate` (strict less-than) are ignored. Same-day entries (`entry.date === newestSnapshotDate`) **do** layer on top — this preserves the existing "latest same-day save wins" behavior for users who save manual updates on the same day they import a snapshot. Rationale: a fresh seed snapshot is the new authoritative baseline, but same-day refinements after import are legitimate edits. Practical effect on this rollout: any dev-test entries saved before 2026-05-01 stop appearing once 2026-05-01 becomes S3's newest snapshot. The localStorage rows aren't deleted, just filtered out of the merge.
 
 ### Data layer changes
 
@@ -43,12 +43,13 @@ New / changed functions:
 
 - **`getSnapshotDates(season)`** — returns sorted ascending array of date strings for that season.
 - **`getNewestSnapshotDate(season)`** — last element of the above (or `null` if season missing).
+- **`getSnapshot(season, date)`** — returns the raw stage-map for a specific snapshot, or `{}` if not present. All raw snapshot access in the codebase goes through this helper rather than direct `SEED_DATA[season][date]` reads (callers: form stage dropdown population, `computeDeltas` internals, `buildCurrentState`).
 - **`buildCurrentState(season, snapshotDate = null)`**:
-  - If `snapshotDate === null` → use newest snapshot, then layer non-stale localStorage entries on top (most recent per stage wins).
+  - If `snapshotDate === null` → use newest snapshot, then layer non-stale localStorage entries on top (most recent per stage wins, with same-day-tiebreak by insertion order preserved).
   - If `snapshotDate` is a date string → return that snapshot's stage map exactly. No localStorage layering.
 - **`computeDeltas(season, mode, snapshotDate = null)`**:
-  - `mode === 'last-season'` → compare the resolved snapshot to the newest snapshot of the previous season (alphabetic predecessor in `SEED_DATA`). Returns `null` per stage if no previous season exists.
-  - `mode === 'previous-snapshot'` → compare the resolved snapshot to the snapshot immediately preceding it within the same season. Returns `null` per stage if no prior snapshot exists.
+  - `mode === 'last-season'` → compare the resolved snapshot to the newest snapshot of the previous season (alphabetic predecessor in `SEED_DATA`). Comparison target is **always the previous season's newest snapshot**, regardless of whether the user is viewing a current or historical snapshot of `season`. Returns `null` per stage if no previous season exists.
+  - `mode === 'previous-snapshot'` → compare the resolved snapshot to the snapshot immediately preceding it within the same season. When viewing newest, compares against the second-newest. When viewing a historical snapshot, compares against whatever snapshot precedes it (or returns `null` for the oldest snapshot). Returns `null` per stage if no prior snapshot exists.
 
 Removed:
 
@@ -68,7 +69,10 @@ const state = {
 }
 ```
 
-`activeSnapshot` is reset to `null` whenever `activeSeason` changes (switching seasons always lands on the newest snapshot of that season).
+**State reset rules on season change:**
+
+- `activeSnapshot` resets to `null` (always lands on the newest snapshot of the new season).
+- If `deltaMode === 'previous-snapshot'` and the new season has only one snapshot, `deltaMode` auto-resets to `'last-season'`. This prevents an empty Trending Up/Down view when the toggle is disabled.
 
 ### UI
 
@@ -91,6 +95,7 @@ const state = {
 - Shows two options: `vs last season` / `vs previous snapshot`.
 - The `vs previous snapshot` button is rendered with a `disabled` attribute, reduced opacity, and `cursor: not-allowed` when the active season has only one snapshot. Clicks are ignored.
 - The `last-season` toggle continues to be active by default.
+- The chart-header text built in `renderChartHeader()` previously read `vs last season / last session`; it must be updated to `vs last season / vs previous snapshot`. Any aria-labels or tooltips referring to "session" are removed.
 
 **Summary cards and chart:**
 
@@ -147,6 +152,7 @@ The 2026-05-01 S3 snapshot:
 - `computeDeltas('S1', 'previous-snapshot')['Arena'] === null` (only one snapshot).
 - `computeDeltas('S3', 'last-season')` is non-null for stages present in both S2 and S3 newest snapshots.
 - A localStorage entry dated `2026-04-15` for S3 Arena does not appear in the merged current state (stale: predates newest 2026-05-01 snapshot).
+- A localStorage entry dated `2026-05-01` (same as newest snapshot) for S3 Arena **does** override the snapshot value (regression guard: same-day saves still layer on top).
 
 Manual verification checklist:
 
@@ -154,9 +160,10 @@ Manual verification checklist:
 2. Click `2026-04-11` snapshot pill — chart shows original values; entry form and "+ Add Stage Data" button hidden.
 3. With historical snapshot active, click `vs previous snapshot` — all deltas show `—` (no prior snapshot before 2026-04-11).
 4. Switch to newest snapshot, click `vs previous snapshot` — Arena shows -42%, Secluded Training Ground shows +10%.
-5. Switch to S1 — snapshot pill row hidden; `vs previous snapshot` toggle disabled (greyed).
-6. Switch back to S3 newest, save Arena = 99 via entry form — Arena bar reflects 99 immediately, persists across reload.
-7. Switch to S3 historical (2026-04-11) — Arena still shows 100 (manual entries don't layer on historical views).
+5. Switch to S3 historical (2026-04-11), click `vs last season` — deltas computed against S2's newest snapshot (not against any S3 snapshot).
+6. Set delta mode to `vs previous snapshot` (while on S3 newest), then switch to S1 — snapshot pill row hidden; toggle auto-falls-back to `vs last season`; `vs previous snapshot` button is disabled (greyed).
+7. Switch back to S3 newest, save Arena = 99 via entry form — Arena bar reflects 99 immediately, persists across reload.
+8. Switch to S3 historical (2026-04-11) — Arena still shows 100 (manual entries don't layer on historical views).
 
 ## Out of scope
 
