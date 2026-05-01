@@ -5,7 +5,8 @@
       "Bash(cp \"C:/Users/clark/.claude/plans/staged-seeking-harbor.md\" \"D:/SW-Stage-Data/docs/superpowers/plans/2026-04-11-tekken8-stage-tracker.md\")",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(where gh:*)"
+      "Bash(where gh:*)",
+      "mcp__Claude_Preview__preview_start"
     ]
   }
 }
