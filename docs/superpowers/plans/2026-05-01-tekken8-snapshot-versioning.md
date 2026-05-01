@@ -75,6 +75,8 @@ Find the entire `const SEED_DATA = { ... }` block and replace with the new date-
 
 Add a comment above the constant: "Each season holds one or more dated snapshots. Newest is current baseline. Add new snapshots by inserting another date key under the same season."
 
+Also remove the existing trailing comment `// Add future seasons here: S4: { "Stage Name": winRate, ... }` — it documents the old flat shape and is no longer accurate.
+
 - [ ] **Step 2: Open browser at http://localhost:8080**
 
 Expected: page is **broken**. Console shows assertion failures because `buildCurrentState` still expects the old shape. Chart empty or NaN. **This is the expected intermediate state.** Tasks 2-4 fix it.
@@ -96,7 +98,7 @@ Add functions:
 - `getNewestSnapshotDate(season)` — returns last element of `getSnapshotDates(season)`, or `null` if empty.
 - `getSnapshot(season, date)` — returns `(SEED_DATA[season] && SEED_DATA[season][date]) || {}`.
 
-All raw snapshot access in the codebase must go through `getSnapshot` rather than direct `SEED_DATA[season][date]` reads. This includes `buildCurrentState`, `computeDeltas`, and any future callers.
+All raw snapshot access in the codebase must go through `getSnapshot` rather than direct `SEED_DATA[season][date]` reads. This includes `buildCurrentState`, `computeDeltas`, and `populateStageDropdown` (~line 601, currently reads `Object.keys(SEED_DATA[season] || {})` — change to `Object.keys(getSnapshot(season, getNewestSnapshotDate(season)))` so it lists stages from the newest snapshot of the chosen season). Without this update the entry form's stage dropdown will be empty after the migration.
 
 - [ ] **Step 2: Replace `buildCurrentState` body — new signature `buildCurrentState(season, snapshotDate = null)`**
 
@@ -201,7 +203,7 @@ Assertion groups:
    - Inject two entries (insertion order matters): `[{...,winRate:99,date:'2026-05-01'}, {...,winRate:77,date:'2026-05-01'}]`. Assert `buildCurrentState('S3').Arena === 77` (later same-day save wins).
    - Inject one entry on 2026-05-01. Assert `buildCurrentState('S3', '2026-04-11').Arena === 100` (historical view ignores localStorage entirely).
 
-Implementation note: replace `getEntries` via reassignment. To support that, the original `getEntries` must be a `let` binding, OR the test must close over a stub via a top-level `let _entriesStub = null` plus a small modification to `getEntries` that returns `_entriesStub` when set. Choose whichever is cleanest; either is fine. Document the choice in a comment.
+Implementation note: replace `getEntries` via reassignment. To support that, the original `getEntries` must be a `let` binding, OR the test must close over a stub via a top-level `let _entriesStub = null` plus a small modification to `getEntries` that returns `_entriesStub` when set. Choose whichever is cleanest; either is fine. Document the choice in a comment. **Wrap each stubbed sub-test in a `try { ... } finally { _restoreGetEntries() }`** so that an assertion failure does not leak the stub into the live UI render that follows `runDataTests()`. Without this, a single failing test could leave the page rendering against fake localStorage data and produce confusing follow-on failures.
 
 End with `console.log('[DataTests] All assertions passed')`.
 
@@ -246,7 +248,7 @@ New shape:
 
 - [ ] **Step 1: Insert snapshot row markup in the HTML body**
 
-Immediately after the closing `</div>` of `.season-bar` and before `<!-- Summary cards -->`, insert a new section:
+Immediately after the closing `</div>` of `.season-bar` and before the `<!-- Summary cards -->` HTML comment marker (anchor by that comment, not by line number — it currently sits at line ~234), insert a new section:
 
 - A wrapping `<div>` with `class="snapshot-row" id="snapshot-row" hidden`.
 - Inside: a `<span class="snapshot-row-label">Snapshots</span>` and a `<div class="snapshot-pills" id="snapshot-pills"></div>`.
@@ -397,7 +399,7 @@ git commit -m "feat(ui): add snapshot pill row, historical read-only view, snaps
 2. Page opens on **S3 newest (2026-05-01)** by default. Chart sorted by win rate desc: Secluded Training Ground (81%) at top, Rebel Hangar (30%) at bottom.
 3. Summary cards reflect 2026-05-01 data (Best = Secluded Training Ground green, Worst = Rebel Hangar red, Overall ≈ 55%).
 4. Snapshot row visible with two pills; `2026-05-01 current` highlighted. Header reads `S3 (2026-05-01) win rate — ...`.
-5. Click `vs previous snapshot` toggle → Arena `-42%`, Secluded Training Ground `+10%`, Genmaji Temple `—` (33-33=0 renders as em-dash).
+5. Click `vs previous snapshot` toggle → Arena `-42%`, Secluded Training Ground `+10%`, Genmaji Temple `—` (33-33=0; existing `renderStageList` treats `delta === 0` the same as `null` and renders the em-dash via the `.delta.none` branch — confirmed against current code at ~line 569).
 6. Click `Trending up` tab → only stages with positive deltas shown.
 7. Click `Trending down` tab → only stages with negative deltas shown (Arena, Baobab Horizon, Phoenix Gate, etc.).
 8. Click `All stages` tab to reset.
@@ -448,7 +450,7 @@ git merge claude/strange-rosalind --no-ff -m "feat: snapshot versioning for stag
 git push
 ```
 
-Skip if Pages serves directly from the worktree branch.
+Skip if Pages serves directly from the worktree branch. To check the current Pages config without guessing, run `gh api repos/:owner/:repo/pages` (replace owner/repo) or visit the repository Settings → Pages page in the browser.
 
 ---
 
