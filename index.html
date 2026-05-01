@@ -56,6 +56,47 @@
     }
     .add-data-btn:hover { border-color: #888; color: #eee; }
 
+    /* ── Snapshot row ── */
+    .snapshot-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 24px;
+      padding-left: 2px;
+    }
+    .snapshot-row[hidden] { display: none; }
+    .snapshot-row-label {
+      text-transform: uppercase;
+      font-size: 11px;
+      color: #666;
+      letter-spacing: 0.05em;
+      margin-right: 4px;
+    }
+    .snapshot-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+    .snapshot-btn {
+      background: transparent;
+      border: 1px solid #333;
+      color: #888;
+      border-radius: 14px;
+      padding: 4px 12px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .snapshot-btn:hover { border-color: #666; color: #ccc; }
+    .snapshot-btn.active { background: #2a2a2a; border-color: #777; color: #eee; }
+    .snapshot-btn .tag { color: #888; margin-left: 4px; font-size: 11px; }
+    .snapshot-btn.active .tag { color: #aaa; }
+
+    .delta-toggle:disabled, .delta-toggle[disabled] {
+      opacity: 0.4;
+      cursor: not-allowed;
+      text-decoration: none;
+    }
+    .delta-toggle:disabled:hover { color: #666; }
+
+    .entry-panel[hidden], .add-data-btn[hidden] { display: none !important; }
+
     /* ── Summary cards ── */
     .summary-cards {
       display: grid;
@@ -229,6 +270,12 @@
     <div class="season-bar">
       <div class="season-pills" id="season-pills"></div>
       <button class="add-data-btn" id="add-data-btn">+ Add Stage Data</button>
+    </div>
+
+    <!-- Snapshot row -->
+    <div class="snapshot-row" id="snapshot-row" hidden>
+      <span class="snapshot-row-label">Snapshots</span>
+      <div class="snapshot-pills" id="snapshot-pills"></div>
     </div>
 
     <!-- Summary cards -->
@@ -556,9 +603,10 @@
     // ── State ────────────────────────────────────────────────────────────────────
     const state = {
       activeSeason: Object.keys(SEED_DATA).sort().at(-1), // default to last season
+      activeSnapshot: null,  // null = newest snapshot of activeSeason; otherwise ISO date string
       activeTab: 'all',      // 'all' | 'trending-up' | 'trending-down'
       activeFilter: 'all',   // 'all' | 'strong' | 'weak'
-      deltaMode: 'season',   // 'season' | 'session'
+      deltaMode: 'last-season', // 'last-season' | 'previous-snapshot'
     }
 
     // ── Render: Season bar ───────────────────────────────────────────────────────
@@ -570,9 +618,29 @@
         }).join('')
     }
 
+    // ── Render: Snapshot pills ───────────────────────────────────────────────────
+    function renderSnapshotPills() {
+      const row = document.getElementById('snapshot-row')
+      const pills = document.getElementById('snapshot-pills')
+      const dates = getSnapshotDates(state.activeSeason)
+      if (dates.length <= 1) {
+        row.hidden = true
+        pills.innerHTML = ''
+        return
+      }
+      row.hidden = false
+      const newest = dates[dates.length - 1]
+      pills.innerHTML = dates.map(date => {
+        const isActive = (state.activeSnapshot === null && date === newest) || state.activeSnapshot === date
+        const activeClass = isActive ? ' active' : ''
+        const tag = date === newest ? '<span class="tag">current</span>' : ''
+        return `<button class="snapshot-btn${activeClass}" data-snapshot="${escapeHtml(date)}">${escapeHtml(date)}${tag}</button>`
+      }).join('')
+    }
+
     // ── Render: Summary cards ────────────────────────────────────────────────────
     function renderSummaryCards() {
-      const current = buildCurrentState(state.activeSeason)
+      const current = buildCurrentState(state.activeSeason, state.activeSnapshot)
       const overall = getOverallWinRate(current)
       const best    = getBestStage(current)
       const worst   = getWorstStage(current)
@@ -626,15 +694,22 @@
     }
 
     function renderChartHeader() {
-      const seasonToggle  = `<button class="delta-toggle${state.deltaMode === 'season'  ? ' active' : ''}" data-delta="season">last season</button>`
-      const sessionToggle = `<button class="delta-toggle${state.deltaMode === 'session' ? ' active' : ''}" data-delta="session">last session</button>`
+      const seasonActive = state.deltaMode === 'last-season' ? ' active' : ''
+      const snapActive   = state.deltaMode === 'previous-snapshot' ? ' active' : ''
+      const hasMultiSnapshot = getSnapshotDates(state.activeSeason).length > 1
+      const disabledAttr = hasMultiSnapshot ? '' : ' disabled'
+      const dateLabel = state.activeSnapshot !== null
+        ? state.activeSnapshot
+        : (getNewestSnapshotDate(state.activeSeason) || '—')
+      const seasonToggle = `<button class="delta-toggle${seasonActive}" data-delta="last-season">last season</button>`
+      const snapToggle   = `<button class="delta-toggle${snapActive}" data-delta="previous-snapshot"${disabledAttr}>previous snapshot</button>`
       document.getElementById('chart-header').innerHTML =
-        `Stage &mdash; ${escapeHtml(state.activeSeason)} win rate &mdash; vs ${seasonToggle} / ${sessionToggle}`
+        `Stage &mdash; ${escapeHtml(state.activeSeason)} (${escapeHtml(dateLabel)}) win rate &mdash; vs ${seasonToggle} / ${snapToggle}`
     }
 
     function renderStageList() {
-      const current = buildCurrentState(state.activeSeason)
-      const deltas  = computeDeltas(state.activeSeason, state.deltaMode)
+      const current = buildCurrentState(state.activeSeason, state.activeSnapshot)
+      const deltas  = computeDeltas(state.activeSeason, state.deltaMode, state.activeSnapshot)
 
       // Sort by win rate descending
       let rows = Object.entries(current).sort((a, b) => b[1] - a[1])
@@ -730,12 +805,21 @@
       render()
     }
 
+    // Historical snapshots are read-only — hide entry form and Add button.
+    function renderEntryPanelVisibility() {
+      const hide = state.activeSnapshot !== null
+      document.getElementById('entry-panel').hidden = hide
+      document.getElementById('add-data-btn').hidden = hide
+    }
+
     // ── Render orchestrator ──────────────────────────────────────────────────────
     function render() {
       renderSeasonBar()
+      renderSnapshotPills()
       renderSummaryCards()
       renderChart()
       renderEntryForm()
+      renderEntryPanelVisibility()
     }
 
     // ── Event delegation ─────────────────────────────────────────────────────────
@@ -743,6 +827,19 @@
       const seasonBtn = e.target.closest('[data-season]')
       if (seasonBtn) {
         state.activeSeason = seasonBtn.dataset.season
+        state.activeSnapshot = null
+        if (state.deltaMode === 'previous-snapshot' && getSnapshotDates(state.activeSeason).length <= 1) {
+          state.deltaMode = 'last-season'
+        }
+        render()
+        return
+      }
+
+      const snapshotBtn = e.target.closest('[data-snapshot]')
+      if (snapshotBtn) {
+        const date = snapshotBtn.dataset.snapshot
+        const newest = getNewestSnapshotDate(state.activeSeason)
+        state.activeSnapshot = (date === newest) ? null : date
         render()
         return
       }
@@ -763,6 +860,7 @@
 
       const deltaBtn = e.target.closest('[data-delta]')
       if (deltaBtn) {
+        if (deltaBtn.disabled) return
         state.deltaMode = deltaBtn.dataset.delta
         renderChart()
         return
